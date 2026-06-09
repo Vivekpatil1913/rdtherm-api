@@ -11,10 +11,13 @@ function required(name, fallback) {
 const env = {
   nodeEnv: process.env.NODE_ENV || "development",
   port: parseInt(process.env.PORT || "4000", 10),
-  apiUrl: process.env.API_URL || "http://localhost:4000",
-  adminUrl: process.env.ADMIN_URL || "http://localhost:3001",
+  apiUrl: process.env.API_URL || "https://rdtherm-api.sumagodemo.com",
+  adminUrl: process.env.ADMIN_URL || "https://rdtherm-admin.sumagodemo.com",
 
-  corsOrigins: (process.env.CORS_ORIGINS || "http://localhost:3001")
+  corsOrigins: (
+    process.env.CORS_ORIGINS ||
+    "https://rdtherm-admin.sumagodemo.com,https://rdtherm-web.sumagodemo.com,http://localhost:3001,http://localhost:3000"
+  )
     .split(",")
     .map((o) => o.trim())
     .filter(Boolean),
