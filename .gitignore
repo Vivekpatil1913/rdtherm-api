@@ -1,5 +1,6 @@
 node_modules/
 .env
-uploads/
+# runtime upload storage at repo root only — NOT the src/modules/uploads source module
+/uploads/
 *.log
 .DS_Store
