@@ -175,6 +175,13 @@ async function requestPasswordReset(email) {
   return { ok: true };
 }
 
+/** Check a reset token without consuming it — powers the "is this link still valid?" page check. */
+async function verifyResetToken(rawToken) {
+  if (!rawToken) return { valid: false };
+  const record = await prisma.passwordReset.findUnique({ where: { tokenHash: hashToken(rawToken) } });
+  return { valid: !!record && !record.usedAt && record.expiresAt >= new Date() };
+}
+
 async function resetPassword(rawToken, newPassword) {
   const record = await prisma.passwordReset.findUnique({ where: { tokenHash: hashToken(rawToken) } });
   if (!record || record.usedAt || record.expiresAt < new Date()) {
@@ -202,6 +209,7 @@ module.exports = {
   updateProfile,
   changePassword,
   requestPasswordReset,
+  verifyResetToken,
   resetPassword,
   publicUser,
 };

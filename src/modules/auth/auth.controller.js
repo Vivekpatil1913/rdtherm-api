@@ -50,9 +50,14 @@ const forgotPassword = asyncHandler(async (req, res) => {
   return ok(res, { message: "If that email exists, a reset link has been sent." });
 });
 
+const verifyResetToken = asyncHandler(async (req, res) => {
+  const result = await service.verifyResetToken(req.body.token || req.query.token || "");
+  return ok(res, result);
+});
+
 const resetPassword = asyncHandler(async (req, res) => {
   await service.resetPassword(req.body.token, req.body.password);
   return ok(res, { message: "Password updated. You can now sign in." });
 });
 
-module.exports = { login, refresh, logout, logoutAll, me, updateProfile, changePassword, forgotPassword, resetPassword };
+module.exports = { login, refresh, logout, logoutAll, me, updateProfile, changePassword, forgotPassword, verifyResetToken, resetPassword };

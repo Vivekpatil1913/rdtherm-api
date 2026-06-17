@@ -52,6 +52,14 @@ router.post(
   ctrl.forgotPassword,
 );
 
+// Lightweight check used by the reset page on load — does NOT consume the token.
+router.post(
+  "/verify-reset-token",
+  authLimiter,
+  validate({ token: { type: "string", required: true, label: "Token" } }),
+  ctrl.verifyResetToken,
+);
+
 router.post(
   "/reset-password",
   authLimiter,
