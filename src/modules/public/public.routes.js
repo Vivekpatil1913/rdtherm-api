@@ -73,6 +73,12 @@ router.get("/blogs/:slug", asyncHandler(async (req, res) => {
 
 router.get("/case-studies", listPublished("caseStudy", (r) => ({ id: r.id, slug: r.slug, title: r.title, client: r.client, industry: r.industry, summary: r.summary, cover: r.coverUrl, metrics: r.metrics || [] })));
 
+router.get("/case-studies/:slug", asyncHandler(async (req, res) => {
+  const r = await prisma.caseStudy.findFirst({ where: { slug: req.params.slug, ...PUBLISHED } });
+  if (!r) return res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Case study not found." } });
+  return ok(res, { id: r.id, slug: r.slug, title: r.title, client: r.client, industry: r.industry, summary: r.summary, cover: r.coverUrl, metrics: r.metrics || [] });
+}));
+
 router.get("/settings", asyncHandler(async (req, res) => ok(res, await getSettingsPayload())));
 
 /* Contact form submission (public write). */
@@ -103,6 +109,52 @@ router.post(
       },
     });
     return created(res, { message: "Thank you — your enquiry has been received." });
+  }),
+);
+
+/* Air Receiver quote request (public write) — configurator & custom builder. */
+router.post(
+  "/quotes",
+  publicWriteLimiter,
+  validate({
+    name: { type: "name", required: true, min: 2, max: 150, label: "Name" },
+    email: { type: "email", required: true, label: "Email" },
+    mobile: { type: "mobile", required: true, label: "Mobile number" },
+    company: { type: "string", required: true, min: 1, max: 190, label: "Company" },
+    country: { type: "string", required: true, min: 1, max: 120, label: "Country" },
+    city: { type: "string", required: true, min: 1, max: 120, label: "City" },
+    message: { type: "string", max: 300, label: "Message" },
+    productName: { type: "string", max: 150, label: "Product" },
+    quoteType: { type: "enum", values: ["standard", "custom"], label: "Quote type" },
+    configuration: { type: "array", itemType: "object", label: "Configuration" },
+    source: { type: "string", max: 120, label: "Source" },
+  }),
+  asyncHandler(async (req, res) => {
+    const b = req.body;
+    // Sanitise each configuration line's label/value (free user input).
+    const configuration = Array.isArray(b.configuration)
+      ? b.configuration
+          .filter((l) => l && typeof l === "object")
+          .map((l) => ({ label: stripTags(String(l.label ?? "")), value: stripTags(String(l.value ?? "")) }))
+      : [];
+
+    await prisma.quoteRequest.create({
+      data: {
+        name: stripTags(b.name),
+        email: b.email,
+        mobile: stripTags(b.mobile),
+        company: stripTags(b.company),
+        country: stripTags(b.country),
+        city: stripTags(b.city),
+        message: stripTags(b.message || ""),
+        productName: stripTags(b.productName || "Air Receiver"),
+        quoteType: b.quoteType === "custom" ? "custom" : "standard",
+        configuration,
+        source: stripTags(b.source || "Air Receiver quote"),
+        quoteStatus: "new",
+      },
+    });
+    return created(res, { message: "Thank you — your quote request has been received." });
   }),
 );
 

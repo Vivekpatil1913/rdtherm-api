@@ -292,6 +292,7 @@ model Lead {
   message    String   @db.Text
   source     String   @default("Contact form") @db.VarChar(120)
   leadStatus String   @default("new") @map("lead_status") @db.VarChar(20)
+  feedback   String?  @db.VarChar(255)
   isActive   Boolean  @default(true) @map("is_active")
   isDeleted Boolean  @default(false) @map("is_deleted")
   sortOrder  Int      @default(0) @map("sort_order")
@@ -302,6 +303,32 @@ model Lead {
   @@index([isDeleted, createdAt])
   @@index([isDeleted, sortOrder])
   @@map("leads")
+}
+
+model QuoteRequest {
+  id            BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  name          String   @db.VarChar(150)
+  email         String   @db.VarChar(190)
+  mobile        String   @db.VarChar(40)
+  company       String   @default("") @db.VarChar(190)
+  country       String   @default("") @db.VarChar(120)
+  city          String   @default("") @db.VarChar(120)
+  message       String   @db.Text
+  productName   String   @default("Air Receiver") @map("product_name") @db.VarChar(150)
+  quoteType     String   @default("standard") @map("quote_type") @db.VarChar(20)
+  configuration Json?
+  source        String   @default("Website") @db.VarChar(120)
+  quoteStatus   String   @default("new") @map("quote_status") @db.VarChar(20)
+  isActive      Boolean  @default(true) @map("is_active")
+  isDeleted     Boolean  @default(false) @map("is_deleted")
+  sortOrder     Int      @default(0) @map("sort_order")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([isDeleted, quoteStatus, createdAt])
+  @@index([isDeleted, createdAt])
+  @@index([isDeleted, sortOrder])
+  @@map("quote_requests")
 }
 
 // ───────────────────────── Settings ─────────────────────────
@@ -326,6 +353,7 @@ model SocialLink {
   id        BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
   label     String   @db.VarChar(80)
   href      String   @db.VarChar(255)
+  active    Boolean  @default(true)
   sortOrder Int      @default(0) @map("sort_order")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

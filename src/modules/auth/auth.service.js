@@ -127,7 +127,12 @@ async function changePassword(userId, currentPassword, newPassword) {
 
   const passwordHash = await bcrypt.hash(newPassword, 12);
   await prisma.user.update({ where: { id }, data: { passwordHash } });
-  // Sign out other devices for security; the current session keeps its tokens.
+  // Security: invalidate ALL sessions (including this one) so the user must
+  // sign in again everywhere with the new password.
+  await prisma.refreshToken.updateMany({
+    where: { userId: id, revokedAt: null },
+    data: { revokedAt: new Date() },
+  });
   return { ok: true };
 }
 
@@ -140,16 +145,32 @@ async function requestPasswordReset(email) {
       data: {
         userId: user.id,
         tokenHash: hashToken(raw),
-        expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
       },
     });
     const link = `${env.adminUrl}/reset-password?token=${raw}`;
-    await sendMail({
+    try {
+      await sendMail({
       to: user.email,
       subject: "Reset your R&D Therm CMS password",
-      text: `Reset your password using this link (valid for 1 hour):\n${link}`,
-      html: `<p>Reset your password using the link below (valid for 1 hour):</p><p><a href="${link}">${link}</a></p>`,
-    });
+      text: `Reset your password using this link (valid for 15 minutes):\n${link}\n\nIf you didn't request this, you can safely ignore this email.`,
+      html: `
+        <div style="font-family:Arial,Helvetica,sans-serif;max-width:480px;margin:0 auto;padding:24px">
+          <h2 style="margin:0 0 8px;color:#111">Reset your password</h2>
+          <p style="color:#444;line-height:1.6">We received a request to reset your R&amp;D Therm CMS password. Click the button below to choose a new one. This link is valid for <strong>15 minutes</strong>.</p>
+          <p style="margin:24px 0">
+            <a href="${link}" style="background:#C8370B;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;display:inline-block;font-weight:600">Reset password</a>
+          </p>
+          <p style="color:#777;font-size:13px;line-height:1.6">Or paste this link into your browser:<br><a href="${link}" style="color:#C8370B;word-break:break-all">${link}</a></p>
+          <p style="color:#999;font-size:12px;margin-top:24px">If you didn't request this, you can safely ignore this email — your password won't change.</p>
+        </div>`,
+      });
+    } catch (err) {
+      // Never fail the request if email delivery breaks — log so the link is
+      // still recoverable, and keep the response identical for security.
+      // eslint-disable-next-line no-console
+      console.error(`[password-reset] email send failed: ${err.message}\nReset link: ${link}`);
+    }
   }
   return { ok: true };
 }

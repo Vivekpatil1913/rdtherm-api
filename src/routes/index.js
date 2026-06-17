@@ -27,6 +27,7 @@ router.use("/team", resources.team);
 router.use("/logos", resources.logos);
 router.use("/careers", resources.careers);
 router.use("/leads", resources.leads);
+router.use("/quotes", resources.quotes);
 
 router.use("/settings", settings.router);
 router.use("/activity", activityRoutes);

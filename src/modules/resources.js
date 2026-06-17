@@ -1,5 +1,9 @@
 const { createCrudRouter } = require("./crud.factory");
 const { slugify, sanitizeRichText, readingTime } = require("../utils/helpers");
+const ApiError = require("../utils/ApiError");
+
+// Lead pipeline is forward-only: new → in-progress → qualified → closed.
+const LEAD_STAGES = ["new", "in-progress", "qualified", "closed"];
 
 const arr = (v) => (Array.isArray(v) ? v : []);
 const dateOnly = (d) => (d ? new Date(d).toISOString().slice(0, 10) : null);
@@ -112,7 +116,7 @@ const products = createCrudRouter({
   toCreate: (b) => ({
     slug: b.slug || slugify(b.title),
     title: b.title,
-    summary: b.summary,
+    summary: sanitizeRichText(b.summary),
     coverUrl: b.cover || "",
     content: sanitizeRichText(b.content),
     featured: !!b.featured,
@@ -128,7 +132,7 @@ const products = createCrudRouter({
   toUpdate: (b) => ({
     slug: b.slug || slugify(b.title),
     title: b.title,
-    summary: b.summary,
+    summary: sanitizeRichText(b.summary),
     coverUrl: b.cover || "",
     content: sanitizeRichText(b.content),
     featured: !!b.featured,
@@ -209,7 +213,7 @@ const blogs = createCrudRouter({
 const caseSchema = {
   title: { type: "string", required: true, min: 6, max: 50, label: "Title" },
   client: { type: "string", required: true, max: 50, label: "Client" },
-  summary: { type: "string", required: true, min: 10, max: 300, label: "Summary" },
+  summary: { type: "html", required: true, label: "Summary" },
   industry: { type: "string", required: true, max: 50, label: "Industry" },
   cover: { type: "string", required: true, label: "Cover image" },
   content: { type: "html", label: "Content" },
@@ -239,7 +243,7 @@ const caseStudies = createCrudRouter({
     title: b.title,
     client: b.client,
     industry: b.industry || "",
-    summary: b.summary,
+    summary: sanitizeRichText(b.summary),
     coverUrl: b.cover || "",
     content: sanitizeRichText(b.content),
     metrics: arr(b.metrics),
@@ -250,7 +254,7 @@ const caseStudies = createCrudRouter({
     title: b.title,
     client: b.client,
     industry: b.industry || "",
-    summary: b.summary,
+    summary: sanitizeRichText(b.summary),
     coverUrl: b.cover || "",
     content: sanitizeRichText(b.content),
     metrics: arr(b.metrics),
@@ -363,6 +367,7 @@ const leads = createCrudRouter({
     message: r.message,
     source: r.source,
     leadStatus: r.leadStatus,
+    feedback: r.feedback || "",
   }),
   toCreate: (b) => ({
     name: b.name,
@@ -375,9 +380,58 @@ const leads = createCrudRouter({
     leadStatus: b.leadStatus || "new",
     isActive: true,
   }),
-  toUpdate: (b) => ({ leadStatus: b.leadStatus }),
+  toUpdate: (b, _req, existing) => {
+    const from = LEAD_STAGES.indexOf(existing.leadStatus);
+    const to = LEAD_STAGES.indexOf(b.leadStatus);
+    // Forward-only: a lead can advance but never move back to an earlier stage.
+    if (to < from) throw ApiError.badRequest("Lead status can only move forward.");
+    // Closing requires a feedback note explaining the decision.
+    if (b.leadStatus === "closed" && !(b.feedback && b.feedback.trim()))
+      throw ApiError.badRequest("Please add feedback explaining why this lead is being closed.");
+    return {
+      leadStatus: b.leadStatus,
+      ...(b.leadStatus === "closed" ? { feedback: b.feedback.trim().slice(0, 150) } : {}),
+    };
+  },
   updateSchema: {
-    leadStatus: { type: "enum", required: true, values: ["new", "in-progress", "qualified", "closed"], label: "Status" },
+    leadStatus: { type: "enum", required: true, values: LEAD_STAGES, label: "Status" },
+    feedback: { type: "string", max: 150, label: "Feedback" },
+  },
+});
+
+/* ───────────────────────── Quote Requests ───────────────────────── */
+const quotes = createCrudRouter({
+  model: "quoteRequest",
+  singular: "Quote request",
+  module: "Quotes",
+  searchFields: ["name", "email", "company", "city", "country"],
+  filters: { quoteStatus: "quoteStatus" },
+  statusField: "quoteStatus",
+  sortMap: { name: "name", createdAt: "createdAt" },
+  // Heavy fields excluded from the list payload; returned in full by GET /:id.
+  listOmit: ["message", "configuration"],
+  toResponse: (r) => ({
+    id: r.id,
+    isActive: r.isActive,
+    order: r.sortOrder,
+    createdAt: r.createdAt,
+    updatedAt: r.updatedAt,
+    name: r.name,
+    email: r.email,
+    mobile: r.mobile,
+    company: r.company,
+    country: r.country,
+    city: r.city,
+    message: r.message,
+    productName: r.productName,
+    quoteType: r.quoteType,
+    configuration: r.configuration ?? [],
+    source: r.source,
+    quoteStatus: r.quoteStatus,
+  }),
+  toUpdate: (b) => ({ quoteStatus: b.quoteStatus }),
+  updateSchema: {
+    quoteStatus: { type: "enum", required: true, values: ["new", "in-progress", "quoted", "closed"], label: "Status" },
   },
 });
 
@@ -392,4 +446,5 @@ module.exports = {
   logos,
   careers,
   leads,
+  quotes,
 };

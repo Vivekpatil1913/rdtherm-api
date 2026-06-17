@@ -23,7 +23,7 @@ async function getSettingsPayload() {
     address: setting?.address || "",
     phone: setting?.phone || "",
     email: setting?.email || "",
-    social: social.map((s) => ({ label: s.label, href: s.href })),
+    social: social.map((s) => ({ label: s.label, href: s.href, active: s.active })),
     hours: hours.map((h) => ({ label: h.label, value: h.value })),
   };
 }
@@ -39,9 +39,9 @@ router.put(
     parent: { type: "string", max: 190, label: "Parent company" },
     tagline: { type: "string", max: 255, label: "Tagline" },
     description: { type: "string", label: "Description" },
-    address: { type: "string", label: "Address" },
-    phone: { type: "string", max: 60, label: "Phone" },
-    email: { type: "email", label: "Email" },
+    address: { type: "string", required: true, min: 1, max: 200, label: "Address" },
+    phone: { type: "string", required: true, min: 1, max: 60, label: "Phone" },
+    email: { type: "email", required: true, label: "Email" },
     social: { type: "array", itemType: "object", label: "Social links" },
     hours: { type: "array", itemType: "object", label: "Business hours" },
   }),
@@ -67,7 +67,7 @@ router.put(
       if (Array.isArray(b.social)) {
         await tx.socialLink.deleteMany({});
         await tx.socialLink.createMany({
-          data: b.social.map((s, i) => ({ label: s.label || "", href: s.href || "#", sortOrder: i })),
+          data: b.social.map((s, i) => ({ label: s.label || "", href: s.href || "#", active: s.active !== false, sortOrder: i })),
         });
       }
       if (Array.isArray(b.hours)) {
