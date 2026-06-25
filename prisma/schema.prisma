@@ -199,6 +199,7 @@ model CaseStudy {
   industry  String   @db.VarChar(190)
   summary   String   @db.Text
   coverUrl  String   @map("cover_url") @db.Text
+  cardImageUrl String? @map("card_image_url") @db.Text
   content   String   @db.LongText
   metrics   Json?
   isActive  Boolean  @default(true) @map("is_active")

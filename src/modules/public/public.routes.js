@@ -121,12 +121,12 @@ router.get("/blogs/:slug", asyncHandler(async (req, res) => {
   return ok(res, { id: r.id, slug: r.slug, title: r.title, excerpt: r.excerpt, category: r.category, author: r.author, date: r.publishedAt ? r.publishedAt.toISOString().slice(0, 10) : null, readTime: r.readTime, cover: r.coverUrl, cardImage: r.cardImageUrl || r.coverUrl, content: r.content });
 }));
 
-router.get("/case-studies", listPublished("caseStudy", (r) => ({ id: r.id, slug: r.slug, title: r.title, client: r.client, industry: r.industry, summary: r.summary, cover: r.coverUrl, metrics: r.metrics || [] })));
+router.get("/case-studies", listPublished("caseStudy", (r) => ({ id: r.id, slug: r.slug, title: r.title, client: r.client, industry: r.industry, summary: r.summary, cover: r.coverUrl, cardImage: r.cardImageUrl || r.coverUrl, metrics: r.metrics || [] })));
 
 router.get("/case-studies/:slug", asyncHandler(async (req, res) => {
   const r = await prisma.caseStudy.findFirst({ where: { slug: req.params.slug, ...PUBLISHED } });
   if (!r) return res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Case study not found." } });
-  return ok(res, { id: r.id, slug: r.slug, title: r.title, client: r.client, industry: r.industry, summary: r.summary, cover: r.coverUrl, metrics: r.metrics || [] });
+  return ok(res, { id: r.id, slug: r.slug, title: r.title, client: r.client, industry: r.industry, summary: r.summary, cover: r.coverUrl, cardImage: r.cardImageUrl || r.coverUrl, metrics: r.metrics || [] });
 }));
 
 router.get("/settings", asyncHandler(async (req, res) => ok(res, await getSettingsPayload())));

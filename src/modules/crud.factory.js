@@ -79,9 +79,12 @@ function createCrudRouter(config) {
       select: { id: true },
     });
     if (clash) {
+      // Humanize the internal column (key/slug) so the message reads naturally.
+      const FRIENDLY = { key: "name", slug: "name", label: "name", author: "name", email: "email address", phone: "phone number" };
+      const label = FRIENDLY[uniqueField] || uniqueField;
       // Field-mapped validation error so the admin surfaces it inline on that field.
       throw ApiError.validation({
-        [uniqueField]: `This ${uniqueField} is already used by another ${singular.toLowerCase()}. Please enter a different one.`,
+        [uniqueField]: `This ${label} is already used by another ${singular.toLowerCase()}. Please enter a different one.`,
       });
     }
   }
