@@ -79,7 +79,10 @@ function createCrudRouter(config) {
       select: { id: true },
     });
     if (clash) {
-      throw ApiError.conflict(`A ${singular.toLowerCase()} with this ${uniqueField} already exists.`, { field: uniqueField });
+      // Field-mapped validation error so the admin surfaces it inline on that field.
+      throw ApiError.validation({
+        [uniqueField]: `This ${uniqueField} is already used by another ${singular.toLowerCase()}. Please enter a different one.`,
+      });
     }
   }
 

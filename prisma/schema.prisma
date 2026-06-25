@@ -172,6 +172,7 @@ model BlogPost {
   category    String    @db.VarChar(80)
   author      String    @db.VarChar(150)
   coverUrl    String    @map("cover_url") @db.Text
+  cardImageUrl String   @default("") @map("card_image_url") @db.Text
   content     String    @db.LongText
   readTime    String    @default("") @map("read_time") @db.VarChar(40)
   views       Int       @default(0)
@@ -329,6 +330,31 @@ model QuoteRequest {
   @@index([isDeleted, createdAt])
   @@index([isDeleted, sortOrder])
   @@map("quote_requests")
+}
+
+model JobApplication {
+  id         BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  name       String   @db.VarChar(150)
+  email      String   @db.VarChar(190)
+  phone      String   @default("") @db.VarChar(40)
+  role       String   @db.VarChar(150)
+  portfolio  String   @default("") @map("portfolio") @db.VarChar(255)
+  message    String   @db.Text
+  resumeUrl  String   @map("resume_url") @db.VarChar(500)
+  resumeName String   @default("") @map("resume_name") @db.VarChar(255)
+  source     String   @default("Careers page") @db.VarChar(120)
+  appStatus  String   @default("new") @map("app_status") @db.VarChar(20)
+  feedback   String?  @db.VarChar(255)
+  isActive   Boolean  @default(true) @map("is_active")
+  isDeleted  Boolean  @default(false) @map("is_deleted")
+  sortOrder  Int      @default(0) @map("sort_order")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([isDeleted, appStatus, createdAt])
+  @@index([isDeleted, createdAt])
+  @@index([isDeleted, sortOrder])
+  @@map("job_applications")
 }
 
 // ───────────────────────── Settings ─────────────────────────

@@ -138,8 +138,14 @@ async function changePassword(userId, currentPassword, newPassword) {
 
 async function requestPasswordReset(email) {
   const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
-  // Always behave the same to avoid leaking which emails exist.
-  if (user && user.isActive) {
+  // Per product decision (internal admin, few users): tell the user when the
+  // email isn't linked to an account instead of the generic "if it exists" reply.
+  if (!user || !user.isActive) {
+    throw ApiError.validation({
+      email: "This email is not linked to any account. Please enter the correct registered email.",
+    });
+  }
+  {
     const raw = crypto.randomBytes(32).toString("hex");
     await prisma.passwordReset.create({
       data: {

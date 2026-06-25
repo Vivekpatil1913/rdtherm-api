@@ -3,12 +3,14 @@ const ctrl = require("./auth.controller");
 const { validate } = require("../../middleware/validate");
 const { requireAuth } = require("../../middleware/auth");
 const { authLimiter } = require("../../middleware/rateLimit");
+const { requireCaptcha } = require("../../middleware/recaptcha");
 
 const router = express.Router();
 
 router.post(
   "/login",
   authLimiter,
+  requireCaptcha,
   validate({
     email: { type: "email", required: true, label: "Email" },
     password: { type: "string", required: true, min: 6, label: "Password" },

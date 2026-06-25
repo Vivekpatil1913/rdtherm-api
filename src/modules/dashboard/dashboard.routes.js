@@ -25,6 +25,8 @@ router.get(
       careers,
       leads,
       leadsNew,
+      quotesNew,
+      applicationsNew,
       activeBlogs,
       activeProducts,
       recentLeads,
@@ -40,6 +42,8 @@ router.get(
       prisma.jobOpening.count({ where: live }),
       prisma.lead.count({ where: live }),
       prisma.lead.count({ where: { ...live, leadStatus: "new" } }),
+      prisma.quoteRequest.count({ where: { ...live, quoteStatus: "new" } }),
+      prisma.jobApplication.count({ where: { ...live, appStatus: "new" } }),
       prisma.blogPost.count({ where: { ...live, isActive: true } }),
       prisma.product.count({ where: { ...live, isActive: true } }),
       prisma.lead.findMany({
@@ -53,6 +57,8 @@ router.get(
     return ok(res, {
       totals: { products, blogs, caseStudies, testimonials, team, faqs, industries, logos, careers, leads },
       leadsNew,
+      quotesNew,
+      applicationsNew,
       activeBlogs,
       activeProducts,
       recentLeads,

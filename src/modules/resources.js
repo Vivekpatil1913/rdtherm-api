@@ -34,6 +34,7 @@ const testimonials = createCrudRouter({
   model: "testimonial",
   singular: "Testimonial",
   module: "Testimonials",
+  uniqueField: "author",
   searchFields: ["author", "role", "body"],
   sortMap: { author: "author", rating: "rating" },
   toResponse: (r) => ({ ...base(r), author: r.author, role: r.role, body: r.body, rating: r.rating, avatarUrl: r.avatarUrl || "" }),
@@ -153,6 +154,7 @@ const blogSchema = {
   title: { type: "string", required: true, min: 6, max: 50, label: "Title" },
   excerpt: { type: "string", required: true, max: 150, label: "Excerpt" },
   cover: { type: "string", required: true, label: "Cover image" },
+  cardImage: { type: "string", required: true, label: "Card image" },
   content: { type: "html", label: "Content" },
   category: { type: "string", max: 80, label: "Category" },
   author: { type: "string", max: 50, label: "Author" },
@@ -178,6 +180,7 @@ const blogs = createCrudRouter({
     date: dateOnly(r.publishedAt) || dateOnly(r.createdAt),
     readTime: r.readTime,
     cover: r.coverUrl,
+    cardImage: r.cardImageUrl || r.coverUrl,
     content: r.content,
     views: r.views,
   }),
@@ -188,6 +191,7 @@ const blogs = createCrudRouter({
     category: b.category || "Manufacturing",
     author: b.author || "R&D Therm Editorial",
     coverUrl: b.cover || "",
+    cardImageUrl: b.cardImage || "",
     content: sanitizeRichText(b.content),
     readTime: readingTime(b.content),
     views: 0,
@@ -201,6 +205,7 @@ const blogs = createCrudRouter({
     category: b.category,
     author: b.author,
     coverUrl: b.cover || "",
+    cardImageUrl: b.cardImage || "",
     content: sanitizeRichText(b.content),
     readTime: readingTime(b.content),
     publishedAt: b.date ? new Date(b.date) : undefined,
@@ -435,6 +440,55 @@ const quotes = createCrudRouter({
   },
 });
 
+/* ───────────────────────── Job Applications ───────────────────────── */
+// Forward-only pipeline: new → reviewing → shortlisted → rejected.
+const APP_STAGES = ["new", "reviewing", "shortlisted", "rejected"];
+const applications = createCrudRouter({
+  model: "jobApplication",
+  singular: "Job application",
+  module: "Applications",
+  searchFields: ["name", "email", "role", "phone"],
+  filters: { appStatus: "appStatus" },
+  statusField: "appStatus",
+  sortMap: { name: "name", createdAt: "createdAt" },
+  listOmit: ["message"],
+  toResponse: (r) => ({
+    id: r.id,
+    isActive: r.isActive,
+    order: r.sortOrder,
+    createdAt: r.createdAt,
+    updatedAt: r.updatedAt,
+    name: r.name,
+    email: r.email,
+    phone: r.phone,
+    role: r.role,
+    portfolio: r.portfolio,
+    message: r.message,
+    resumeUrl: r.resumeUrl,
+    resumeName: r.resumeName,
+    source: r.source,
+    appStatus: r.appStatus,
+    feedback: r.feedback || "",
+  }),
+  toUpdate: (b, _req, existing) => {
+    const from = APP_STAGES.indexOf(existing.appStatus);
+    const to = APP_STAGES.indexOf(b.appStatus);
+    // Forward-only: an application can advance but never move back to an earlier stage.
+    if (to < from) throw ApiError.badRequest("Application status can only move forward.");
+    // Rejecting requires a note explaining the decision.
+    if (b.appStatus === "rejected" && !(b.feedback && b.feedback.trim()))
+      throw ApiError.badRequest("Please add feedback explaining why this candidate is being rejected.");
+    return {
+      appStatus: b.appStatus,
+      ...(b.appStatus === "rejected" ? { feedback: b.feedback.trim().slice(0, 150) } : {}),
+    };
+  },
+  updateSchema: {
+    appStatus: { type: "enum", required: true, values: APP_STAGES, label: "Status" },
+    feedback: { type: "string", max: 150, label: "Feedback" },
+  },
+});
+
 module.exports = {
   testimonials,
   industries,
@@ -447,4 +501,5 @@ module.exports = {
   careers,
   leads,
   quotes,
+  applications,
 };

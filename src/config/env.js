@@ -53,6 +53,11 @@ const env = {
     password: process.env.SEED_ADMIN_PASSWORD || "Admin@1234",
   },
 
+  // Google reCAPTCHA v2. When `secret` is blank, verification is skipped (dev).
+  recaptcha: {
+    secret: process.env.RECAPTCHA_SECRET || "",
+  },
+
   get isProd() {
     return this.nodeEnv === "production";
   },
