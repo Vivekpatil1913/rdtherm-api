@@ -172,7 +172,7 @@ model BlogPost {
   category    String    @db.VarChar(80)
   author      String    @db.VarChar(150)
   coverUrl    String    @map("cover_url") @db.Text
-  cardImageUrl String   @default("") @map("card_image_url") @db.Text
+  cardImageUrl String?  @map("card_image_url") @db.Text
   content     String    @db.LongText
   readTime    String    @default("") @map("read_time") @db.VarChar(40)
   views       Int       @default(0)
