@@ -69,7 +69,10 @@ router.post(
     }
 
     // Validate pixel dimensions for raster images (skip SVG — vector).
-    if (req.file.mimetype !== "image/svg+xml") {
+    // `?skipDimensions=1` opts out entirely, for fields that accept any size
+    // (product cover + gallery) where only the size cap applies.
+    const skipDimensions = ["1", "true", "yes"].includes(String(req.query.skipDimensions).toLowerCase());
+    if (!skipDimensions && req.file.mimetype !== "image/svg+xml") {
       try {
         const { width, height } = sizeOf(filePath);
         const { minDim, maxDim } = env.upload;
