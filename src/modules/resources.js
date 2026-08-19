@@ -68,7 +68,6 @@ const industries = createCrudRouter({
 /* ───────────────────────── Products ───────────────────────── */
 const productSchema = {
   title: { type: "string", required: true, min: 2, max: 50, label: "Product name" },
-  summary: { type: "string", required: true, min: 10, max: 300, label: "Summary" },
   cover: { type: "string", required: true, label: "Cover image" },
   content: { type: "html", required: true, label: "Content" },
   slug: { type: "string", max: 190, label: "Slug" },
@@ -93,7 +92,7 @@ const products = createCrudRouter({
   singular: "Product",
   module: "Products",
   uniqueField: "slug",
-  searchFields: ["title", "summary", "slug"],
+  searchFields: ["title", "slug"],
   filters: { featured: "featured" },
   sortMap: { title: "title" },
   include: { images: { orderBy: { sortOrder: "asc" } } },
@@ -102,7 +101,6 @@ const products = createCrudRouter({
     ...base(r),
     slug: r.slug,
     title: r.title,
-    summary: r.summary,
     cover: r.coverUrl,
     content: r.content,
     featured: r.featured,
@@ -117,7 +115,6 @@ const products = createCrudRouter({
   toCreate: (b) => ({
     slug: b.slug || slugify(b.title),
     title: b.title,
-    summary: sanitizeRichText(b.summary),
     coverUrl: b.cover || "",
     content: sanitizeRichText(b.content),
     featured: !!b.featured,
@@ -133,7 +130,6 @@ const products = createCrudRouter({
   toUpdate: (b) => ({
     slug: b.slug || slugify(b.title),
     title: b.title,
-    summary: sanitizeRichText(b.summary),
     coverUrl: b.cover || "",
     content: sanitizeRichText(b.content),
     featured: !!b.featured,
@@ -273,15 +269,22 @@ const caseStudies = createCrudRouter({
 });
 
 /* ───────────────────────── FAQs ───────────────────────── */
+// `order` is the 1-based sequence the admin types. Its upper bound depends on
+// how many FAQs exist, so the range check lives in the router (positioned: true)
+// — this schema only rejects values that can never be a position.
 const faqSchema = {
   question: { type: "string", required: true, min: 8, max: 100, label: "Question" },
   answer: { type: "string", required: true, min: 15, max: 250, label: "Answer" },
+  order: { type: "integer", min: 1, label: "Sequence" },
 };
 const faqs = createCrudRouter({
   model: "faq",
   singular: "FAQ",
   module: "FAQs",
   searchFields: ["question", "answer"],
+  // The website renders FAQs in sortOrder, so the sequence the admin sets here
+  // is exactly the order buyers read them in.
+  positioned: true,
   toResponse: (r) => ({ ...base(r), question: r.question, answer: r.answer }),
   toCreate: (b) => ({ question: b.question, answer: b.answer, isActive: activeOnCreate(b) }),
   toUpdate: (b) => ({ question: b.question, answer: b.answer }),

@@ -144,9 +144,8 @@ async function main() {
       data: {
         slug: p.slug,
         title: p.title,
-        summary: p.summary,
         coverUrl: cover,
-        content: `<p>${p.summary}</p><h2>How we build it</h2><p>Every unit starts from a process datasheet and is validated against the applicable code before fabrication.</p>`,
+        content: `<p>${p.blurb}</p><h2>How we build it</h2><p>Every unit starts from a process datasheet and is validated against the applicable code before fabrication.</p>`,
         featured: p.featured,
         specs: p.specs,
         applications: p.applications,

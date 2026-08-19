@@ -35,6 +35,10 @@ const { validate } = require("../middleware/validate");
  *   toUpdate(body)  map request body to Prisma update data
  *   createSchema    validation schema for POST
  *   updateSchema    validation schema for PUT
+ *   positioned      true → the resource exposes a 1-based `order` (sequence) the
+ *                   admin can set directly on create/update. Positions stay
+ *                   contiguous: inserting at 2 pushes the old 2 down to 3, and
+ *                   deleting closes the gap.
  */
 function createCrudRouter(config) {
   const {
@@ -57,6 +61,8 @@ function createCrudRouter(config) {
     // Heavy scalar fields (e.g. LongText "content") excluded from LIST responses
     // for fast, lightweight payloads at scale. Still returned by GET /:id.
     listOmit = [],
+    // Opt in to admin-settable sequence numbers (see `positioned` above).
+    positioned = false,
   } = config;
 
   const delegate = prisma[model];
@@ -66,6 +72,77 @@ function createCrudRouter(config) {
   const listOmitObj = listOmit.length ? Object.fromEntries(listOmit.map((f) => [f, true])) : undefined;
 
   const fullSortMap = { order: "sortOrder", createdAt: "createdAt", updatedAt: "updatedAt", ...sortMap };
+
+  // sortOrder is 0-based in the DB; a "sequence" is what a human types, so the
+  // API speaks 1-based positions and converts at the boundary.
+  const mapOut = positioned
+    ? (r) => ({ ...toResponse(r), order: (r.sortOrder ?? 0) + 1 })
+    : toResponse;
+
+  /** Live records with their current position, in sequence order. */
+  function liveInOrder() {
+    return delegate.findMany({
+      where: { isDeleted: false },
+      // id breaks ties so the sequence is stable when several rows share a
+      // sortOrder (legacy rows created before this resource was positioned).
+      orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+      select: { id: true, sortOrder: true },
+    });
+  }
+
+  /** Persist `rows` in the given array order, touching only what moved. */
+  async function renumber(rows) {
+    const writes = rows
+      .map((row, index) => ({ row, index }))
+      .filter(({ row, index }) => row.sortOrder !== index)
+      .map(({ row, index }) => delegate.update({ where: { id: row.id }, data: { sortOrder: index } }));
+    if (writes.length) await prisma.$transaction(writes);
+  }
+
+  /**
+   * Reject a sequence the admin could not have meant. On create there is one
+   * extra slot (the new tail); on update the record already occupies one.
+   */
+  function assertPosition(position, count, mode) {
+    const max = mode === "create" ? count + 1 : Math.max(count, 1);
+    if (!Number.isInteger(position) || position < 1 || position > max) {
+      throw ApiError.validation({
+        order:
+          max === 1
+            ? "Sequence must be 1 — this is the only entry."
+            : `Sequence must be a whole number between 1 and ${max}.`,
+      });
+    }
+  }
+
+  /** Requested sequence off the request body, or null when left blank. */
+  function requestedPosition(body) {
+    if (!positioned) return null;
+    const raw = body ? body.order : undefined;
+    if (raw === undefined || raw === null || raw === "") return null;
+    const num = Number(raw);
+    if (!Number.isFinite(num)) {
+      throw ApiError.validation({ order: "Sequence must be a whole number." });
+    }
+    return num;
+  }
+
+  /** Move one record to a 1-based position, resequencing everything around it. */
+  async function applyPosition(id, position) {
+    const rows = await liveInOrder();
+    const moving = rows.find((r) => String(r.id) === String(id));
+    if (!moving) return;
+    const rest = rows.filter((r) => String(r.id) !== String(id));
+    const index = Math.min(Math.max(position - 1, 0), rest.length);
+    rest.splice(index, 0, moving);
+    await renumber(rest);
+  }
+
+  /** Close the gaps a delete leaves behind so sequences stay 1..n. */
+  async function compactPositions() {
+    if (!positioned) return;
+    await renumber(await liveInOrder());
+  }
 
   /** Throw 409 if another *non-deleted* record already uses this unique value. */
   async function assertUnique(value, exceptId) {
@@ -130,7 +207,7 @@ function createCrudRouter(config) {
         delegate.count({ where }),
       ]);
 
-      return paginated(res, rows.map(toResponse), { total, page, pageSize });
+      return paginated(res, rows.map(mapOut), { total, page, pageSize });
     }),
   );
 
@@ -151,7 +228,7 @@ function createCrudRouter(config) {
       await logActivity({ actor: req.user.name, actorId: req.user.id, action: "reordered", target: `${singular} list`, module: moduleName });
 
       const rows = await delegate.findMany({ where: { isDeleted: false }, orderBy: { sortOrder: "asc" }, include });
-      return ok(res, rows.map(toResponse));
+      return ok(res, rows.map(mapOut));
     }),
   );
 
@@ -165,6 +242,7 @@ function createCrudRouter(config) {
         where: { id: { in: ids }, isDeleted: false },
         data: { isDeleted: true, isActive: false },
       });
+      await compactPositions();
       await logActivity({ actor: req.user.name, actorId: req.user.id, action: "deleted", target: `${result.count} ${singular}(s)`, module: moduleName });
       return ok(res, { deleted: result.count });
     }),
@@ -178,7 +256,7 @@ function createCrudRouter(config) {
       if (!id) throw ApiError.badRequest("Invalid id.");
       const record = await delegate.findFirst({ where: { id, isDeleted: false }, include });
       if (!record) throw ApiError.notFound(`${singular} not found.`);
-      return ok(res, toResponse(record));
+      return ok(res, mapOut(record));
     }),
   );
 
@@ -190,13 +268,24 @@ function createCrudRouter(config) {
     asyncHandler(async (req, res) => {
       const data = await toCreate(req.body, req);
       await assertUnique(data[uniqueField]);
+      // Check the sequence before writing anything, so a bad value cannot
+      // leave a half-created record behind.
+      const wanted = requestedPosition(req.body);
+      if (wanted !== null) {
+        assertPosition(wanted, await delegate.count({ where: { isDeleted: false } }), "create");
+      }
       if (data.sortOrder === undefined) {
         const max = await delegate.aggregate({ _max: { sortOrder: true } });
         data.sortOrder = (max._max.sortOrder ?? -1) + 1;
       }
-      const record = await delegate.create({ data, include });
+      let record = await delegate.create({ data, include });
+      // Created at the tail first, then moved — one code path for every insert.
+      if (wanted !== null) {
+        await applyPosition(record.id, wanted);
+        record = await delegate.findFirst({ where: { id: record.id }, include });
+      }
       await logActivity({ actor: req.user.name, actorId: req.user.id, action: "created", target: labelOf(record, singular), module: moduleName });
-      return created(res, toResponse(record));
+      return created(res, mapOut(record));
     }),
   );
 
@@ -212,9 +301,17 @@ function createCrudRouter(config) {
       if (!existing) throw ApiError.notFound(`${singular} not found.`);
       const data = await toUpdate(req.body, req, existing);
       await assertUnique(data[uniqueField], id);
-      const record = await delegate.update({ where: { id }, data, include });
+      const wanted = requestedPosition(req.body);
+      if (wanted !== null) {
+        assertPosition(wanted, await delegate.count({ where: { isDeleted: false } }), "update");
+      }
+      let record = await delegate.update({ where: { id }, data, include });
+      if (wanted !== null) {
+        await applyPosition(id, wanted);
+        record = await delegate.findFirst({ where: { id }, include });
+      }
       await logActivity({ actor: req.user.name, actorId: req.user.id, action: "updated", target: labelOf(record, singular), module: moduleName });
-      return ok(res, toResponse(record));
+      return ok(res, mapOut(record));
     }),
   );
 
@@ -229,7 +326,7 @@ function createCrudRouter(config) {
       if (!existing) throw ApiError.notFound(`${singular} not found.`);
       const record = await delegate.update({ where: { id }, data: { isActive: req.body.isActive }, include });
       await logActivity({ actor: req.user.name, actorId: req.user.id, action: req.body.isActive ? "activated" : "deactivated", target: labelOf(record, singular), module: moduleName });
-      return ok(res, toResponse(record));
+      return ok(res, mapOut(record));
     }),
   );
 
@@ -242,6 +339,7 @@ function createCrudRouter(config) {
       const existing = await delegate.findFirst({ where: { id, isDeleted: false } });
       if (!existing) throw ApiError.notFound(`${singular} not found.`);
       await delegate.update({ where: { id }, data: { isDeleted: true, isActive: false } });
+      await compactPositions();
       await logActivity({ actor: req.user.name, actorId: req.user.id, action: "deleted", target: labelOf(existing, singular), module: moduleName });
       return noContent(res);
     }),

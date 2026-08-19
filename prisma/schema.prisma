@@ -123,7 +123,6 @@ model Product {
   id           BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
   slug         String   @db.VarChar(190)
   title        String   @db.VarChar(255)
-  summary      String   @db.Text
   coverUrl     String   @map("cover_url") @db.Text
   content      String   @db.LongText
   featured     Boolean  @default(false)

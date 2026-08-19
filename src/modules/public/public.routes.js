@@ -67,7 +67,6 @@ router.get(
       id: r.id,
       slug: r.slug,
       title: r.title,
-      summary: r.summary,
       cover: r.coverUrl,
       featured: r.featured,
       specs: r.specs || [],
@@ -86,7 +85,7 @@ router.get(
 router.get("/products/:slug", asyncHandler(async (req, res) => {
   const r = await prisma.product.findFirst({ where: { slug: req.params.slug, ...PUBLISHED }, include: { images: { orderBy: { sortOrder: "asc" } } } });
   if (!r) return res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Product not found." } });
-  return ok(res, { id: r.id, slug: r.slug, title: r.title, summary: r.summary, cover: r.coverUrl, content: r.content, featured: r.featured, specs: r.specs || [], applications: r.applications || [], materials: r.materials || [], compliance: r.compliance || [], benefits: r.benefits || [], inclusions: r.inclusions || [], images: (r.images || []).map((i) => ({ url: i.url, alt: i.alt, label: i.label || undefined })) });
+  return ok(res, { id: r.id, slug: r.slug, title: r.title, cover: r.coverUrl, content: r.content, featured: r.featured, specs: r.specs || [], applications: r.applications || [], materials: r.materials || [], compliance: r.compliance || [], benefits: r.benefits || [], inclusions: r.inclusions || [], images: (r.images || []).map((i) => ({ url: i.url, alt: i.alt, label: i.label || undefined })) });
 }));
 
 const mapBlog = (r) => ({
