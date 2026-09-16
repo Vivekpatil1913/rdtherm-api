@@ -11,12 +11,15 @@ function required(name, fallback) {
 const env = {
   nodeEnv: process.env.NODE_ENV || "development",
   port: parseInt(process.env.PORT || "4000", 10),
-  apiUrl: process.env.API_URL || "https://rdtherm-api.sumagodemo.com",
-  adminUrl: process.env.ADMIN_URL || "https://rdtherm-admin.sumagodemo.com",
+  // Old fallback: apiUrl: "https://rdtherm-api.sumagodemo.com",
+  apiUrl: process.env.API_URL || "https://newrdthermapi.konarkglobal.com",
+  // Old fallback: adminUrl: "https://rdtherm-admin.sumagodemo.com",
+  adminUrl: process.env.ADMIN_URL || "https://newrdtherm.manage.admin.konarkglobal.com",
 
   corsOrigins: (
     process.env.CORS_ORIGINS ||
-    "https://rdtherm-admin.sumagodemo.com,https://rdtherm-web.sumagodemo.com,http://localhost:3001,http://localhost:3000"
+    // Old fallback: "https://rdtherm-admin.sumagodemo.com,https://rdtherm-web.sumagodemo.com,http://localhost:3001,http://localhost:3000"
+    "https://newrdtherm.manage.admin.konarkglobal.com,https://newrdthermweb.konarkglobal.com,http://localhost:3001,http://localhost:3000"
   )
     .split(",")
     .map((o) => o.trim())

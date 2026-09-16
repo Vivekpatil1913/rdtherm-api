@@ -72,11 +72,12 @@ const productSchema = {
   content: { type: "html", required: true, label: "Content" },
   slug: { type: "string", max: 190, label: "Slug" },
   specs: { type: "array", itemType: "string", required: true, min: 1, label: "Specs" },
-  applications: { type: "array", itemType: "string", required: true, min: 1, label: "Applications" },
-  materials: { type: "array", itemType: "string", required: true, min: 1, label: "Materials" },
-  compliance: { type: "array", itemType: "string", required: true, min: 1, label: "Compliance" },
-  benefits: { type: "array", itemType: "string", required: true, min: 1, label: "Benefits" },
-  inclusions: { type: "array", itemType: "string", required: true, min: 1, label: "Always included" },
+  // Optional lists — left empty in the admin, the website simply omits the section.
+  applications: { type: "array", itemType: "string", label: "Applications" },
+  materials: { type: "array", itemType: "string", label: "Materials" },
+  compliance: { type: "array", itemType: "string", label: "Compliance" },
+  benefits: { type: "array", itemType: "string", label: "Benefits" },
+  inclusions: { type: "array", itemType: "string", label: "Always included" },
   images: { type: "array", itemType: "object", required: true, min: 1, max: 5, label: "Gallery images" },
   featured: { type: "boolean", label: "Featured" },
 };
